@@ -11,6 +11,8 @@ namespace Task1
 
             int[,] newMatrix = new int[rows, cols];
 
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
             for (int i = 0; i < rows; i++)
             {
                 for (int j = 0; j < cols; j++)
@@ -19,9 +21,12 @@ namespace Task1
                 }
             }
 
+            stopWatch.Stop();
+            Console.WriteLine($"Sync time ~ {stopWatch.Elapsed}");
+
             return newMatrix;
         }
-        //розібратись
+
         private static Thread StartWorker(int[,] a, int[,] b, int[,] res, int start, int end, int cols)
         {
             Thread thread = new Thread(() =>
@@ -38,6 +43,7 @@ namespace Task1
             thread.Start();
             return thread;
         }
+
         public static int[,] AddMatrixCooler(int[,] firstMatrix, int[,] secondMatrix, int potoky)
         {
             int rows = firstMatrix.GetLength(0);
@@ -68,11 +74,11 @@ namespace Task1
             return newMatrix;
         }
 
-//нада фіксіть і розбиратись
         private static int[,] GenerateMatrix(int rows, int cols)
         {
-            var matrix = new int[rows, cols];
+            int[,] matrix = new int[rows, cols];
             var rnd = new Random();
+
             for (int i = 0; i < rows; i++)
             {
                 for (int j = 0; j < cols; j++)
@@ -80,31 +86,53 @@ namespace Task1
                     matrix[i, j] = rnd.Next(1, 100);
                 }
             }
+
             return matrix;
+        }
+
+        public static void DisplayMatrix(int[,] matrix)
+        {
+            for (int i = 0; i < matrix.GetLength(0); i++)
+            {
+                for (int j = 0; j < matrix.GetLength(1); j++)
+                {
+                    Console.Write($"{matrix[i, j],4} ");
+                }
+
+                Console.WriteLine();
+            }
+
+            Console.WriteLine();
         }
 
         static void Main()
         {
-            int rows = 4000;
-            int cols = 4000;
-            int potoky = Environment.ProcessorCount; 
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            Console.WriteLine($"Генерація матриць {rows}x{cols}...");
-            var m1 = GenerateMatrix(rows, cols);
-            var m2 = GenerateMatrix(rows, cols);
+            List<int> rows = [200, 400, 800, 1600, 3200, 6400, 12800];
+            List<int> cols = [200, 400, 800, 1600, 3200, 6400, 12800];
 
-            Console.WriteLine("\n--- Старт обчислень ---");
+            int potoky = Environment.ProcessorCount;
 
-            var sw = Stopwatch.StartNew();
-            var resSync = AddMatrix(m1, m2);
-            sw.Stop();
-            Console.WriteLine($"Sync time  ~ {sw.Elapsed}");
+            for (int i = 0; i < rows.Count; i++)
+            {
+                int r = rows[i];
+                int c = cols[i];
 
-            var resAsync = AddMatrixCooler(m1, m2, potoky);
+                Console.WriteLine($"Розмір: {r} x {c}");
 
-            bool isCorrect = resSync[0, 0] == resAsync[0, 0] &&
-                             resSync[rows - 1, cols - 1] == resAsync[rows - 1, cols - 1];
-            Console.WriteLine($"\nРезультати зійшлися: {isCorrect}");
+                int[,] m1 = GenerateMatrix(r, c);
+                int[,] m2 = GenerateMatrix(r, c);
+
+                var resSync = AddMatrix(m1, m2);
+                var resAsync = AddMatrixCooler(m1, m2, potoky);
+
+                Console.WriteLine("----------------------------");
+            }
+
+            Console.WriteLine("Тестова матриця 10x10:");
+            var m = GenerateMatrix(10, 10);
+            DisplayMatrix(m);
         }
     }
 }

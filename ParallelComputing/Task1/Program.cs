@@ -109,22 +109,22 @@ namespace Task1
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
+            //int potoky = Environment.ProcessorCount;
+            int potoky = 5;
+            
             Console.WriteLine("Прогрів: ");
             int warmupSize = 100;
             int[,] w1 = GenerateMatrix(warmupSize, warmupSize);
             int[,] w2 = GenerateMatrix(warmupSize, warmupSize);
-
+            
             AddMatrix(w1, w2);
-            AddMatrixCooler(w1, w2, 16);
+            AddMatrixCooler(w1, w2, potoky);
 
             Console.WriteLine("----------------------------------");
 
-
             List<int> rows = [200, 400, 800, 1600, 3200, 6400, 12800];
             List<int> cols = [200, 400, 800, 1600, 3200, 6400, 12800];
-
-            int potoky = Environment.ProcessorCount;
-
+            
             for (int i = 0; i < rows.Count; i++)
             {
                 int r = rows[i];

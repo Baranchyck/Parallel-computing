@@ -22,7 +22,7 @@ namespace Task1
             }
 
             stopWatch.Stop();
-            Console.WriteLine($"Sync time ~ {stopWatch.Elapsed}");
+            Console.WriteLine($"Avarage time ~ {stopWatch.Elapsed}");
 
             return newMatrix;
         }
@@ -69,7 +69,7 @@ namespace Task1
             }
 
             stopWatch.Stop();
-            Console.WriteLine($"Async time ~ {stopWatch.Elapsed} with {potoky} threads");
+            Console.WriteLine($"Parallel time ~ {stopWatch.Elapsed} with {potoky} threads");
 
             return newMatrix;
         }
@@ -108,6 +108,17 @@ namespace Task1
         static void Main()
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+            Console.WriteLine("Прогрів: ");
+            int warmupSize = 100;
+            int[,] w1 = GenerateMatrix(warmupSize, warmupSize);
+            int[,] w2 = GenerateMatrix(warmupSize, warmupSize);
+
+            AddMatrix(w1, w2);
+            AddMatrixCooler(w1, w2, 16);
+
+            Console.WriteLine("----------------------------------");
+
 
             List<int> rows = [200, 400, 800, 1600, 3200, 6400, 12800];
             List<int> cols = [200, 400, 800, 1600, 3200, 6400, 12800];

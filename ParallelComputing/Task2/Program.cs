@@ -2,7 +2,7 @@
 
 namespace Task2
 {
-    class MatrixMultiplying
+    public class MatrixMultiplying
     {
         public static int[,] MultiplyMatrix(int[,] firstMatrix, int[,] secondMatrix)
         {

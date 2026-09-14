@@ -154,5 +154,5 @@ namespace Task2
             var m = GenerateMatrix(10, 10);
             DisplayMatrix(m);
         }
-    }
+    } 
 }

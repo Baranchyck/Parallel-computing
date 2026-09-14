@@ -1,4 +1,7 @@
-﻿using System.Diagnostics;
+﻿//Task1: Matrix Adding
+//рекомендовано додати перевірку на різних кількостях потоків (від 1 до 16 +-)
+//3/4
+using System.Diagnostics;
 
 namespace Task1
 {
@@ -110,9 +113,9 @@ namespace Task1
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
             //int potoky = Environment.ProcessorCount;
-            int potoky = 5;
+            int potoky = 8;
             
-            Console.WriteLine("Прогрів: ");
+            Console.WriteLine("Прогрів. ");
             int warmupSize = 100;
             int[,] w1 = GenerateMatrix(warmupSize, warmupSize);
             int[,] w2 = GenerateMatrix(warmupSize, warmupSize);

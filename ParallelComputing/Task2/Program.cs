@@ -113,7 +113,7 @@ namespace Task2
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
             //int potoky = Environment.ProcessorCount;
-            int potoky = 5;
+            int potoky = 4;
 
             Console.WriteLine($"potoky = {potoky}");
 

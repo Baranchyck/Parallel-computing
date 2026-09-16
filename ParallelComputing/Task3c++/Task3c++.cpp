@@ -1,14 +1,20 @@
 ﻿#include <iostream>
 #include <vector>
 #include <thread>
-#include <random>
+#include <cstdlib>   
+#include <ctime>     
 #include <cmath>
-#include <chrono>
 #include <windows.h>
 
-void generateSystem(int n, std::vector<std::vector<double>>& A, std::vector<double>& b) {
-    std::mt19937 gen(42);
-    std::uniform_real_distribution<double> dist(-10.0, 10.0);
+constexpr double EPS = 1e-9;
+constexpr int MAX_ITER = 10000;
+
+double randomDouble(double min, double max) {
+    return min + (double)rand() / RAND_MAX * (max - min);
+}
+
+void generateSLAR(int n, std::vector<std::vector<double>>& A, std::vector<double>& b) {
+    srand(42); 
 
     A.assign(n, std::vector<double>(n));
     b.assign(n, 0.0);
@@ -17,16 +23,34 @@ void generateSystem(int n, std::vector<std::vector<double>>& A, std::vector<doub
         double rowSum = 0.0;
         for (int j = 0; j < n; ++j) {
             if (i != j) {
-                A[i][j] = dist(gen);
+                A[i][j] = randomDouble(-10.0, 10.0);
                 rowSum += std::fabs(A[i][j]);
             }
         }
-        A[i][i] = rowSum + std::fabs(dist(gen)) + 1.0;
-        b[i] = dist(gen);
+        A[i][i] = rowSum + std::fabs(randomDouble(-10.0, 10.0)) + 1.0;
+        b[i] = randomDouble(-10.0, 10.0);
     }
 }
 
-std::vector<double> jacobiSequential(
+double jacobiStep(int i, int n,
+    const std::vector<std::vector<double>>& A,
+    const std::vector<double>& b,
+    const std::vector<double>& xOld)
+{
+    double weightedSum = 0.0;
+    for (int j = 0; j < n; ++j) {
+        if (j != i) weightedSum += A[i][j] * xOld[j];
+    }
+    return (b[i] - weightedSum) / A[i][i];
+}
+
+double crytery(const std::vector<double>& xOld, const std::vector<double>& xNew) {
+    double diff = 0.0;
+    for (size_t i = 0; i < xOld.size(); ++i) diff += std::fabs(xNew[i] - xOld[i]);
+    return diff;
+}
+
+std::vector<double> jacobi(
     const std::vector<std::vector<double>>& A,
     const std::vector<double>& b,
     double eps, int maxIter)
@@ -36,22 +60,17 @@ std::vector<double> jacobiSequential(
 
     for (int iter = 0; iter < maxIter; ++iter) {
         for (int i = 0; i < n; ++i) {
-            double sum = 0.0;
-            for (int j = 0; j < n; ++j) {
-                if (j != i) sum += A[i][j] * xOld[j];
-            }
-            xNew[i] = (b[i] - sum) / A[i][i];
+            xNew[i] = jacobiStep(i, n, A, b, xOld);
         }
 
-        double diff = 0.0;
-        for (int i = 0; i < n; ++i) diff += std::fabs(xNew[i] - xOld[i]);
+        double residualNorm = crytery(xOld, xNew);
         xOld.swap(xNew);
-        if (diff < eps) break;
+        if (residualNorm < eps) break;
     }
     return xOld;
 }
 
-std::vector<double> jacobiParallel(
+std::vector<double> jacobiCooler(
     const std::vector<std::vector<double>>& A,
     const std::vector<double>& b,
     double eps, int maxIter, int numThreads)
@@ -61,11 +80,7 @@ std::vector<double> jacobiParallel(
 
     auto computeRange = [&](int start, int end) {
         for (int i = start; i < end; ++i) {
-            double sum = 0.0;
-            for (int j = 0; j < n; ++j) {
-                if (j != i) sum += A[i][j] * xOld[j];
-            }
-            xNew[i] = (b[i] - sum) / A[i][i];
+            xNew[i] = jacobiStep(i, n, A, b, xOld);
         }
         };
 
@@ -80,12 +95,17 @@ std::vector<double> jacobiParallel(
         }
         for (auto& t : threads) t.join();
 
-        double diff = 0.0;
-        for (int i = 0; i < n; ++i) diff += std::fabs(xNew[i] - xOld[i]);
+        double residualNorm = crytery(xOld, xNew);
         xOld.swap(xNew);
-        if (diff < eps) break;
+        if (residualNorm < eps) break;
     }
     return xOld;
+}
+
+void displayResult(int threads, double timeMs, double speedup) {
+    std::cout << "  потоків=" << threads
+        << " час=" << timeMs << " мс"
+        << " прискорення=" << speedup << "\n";
 }
 
 int main() {
@@ -98,24 +118,22 @@ int main() {
     for (int n : sizes) {
         std::vector<std::vector<double>> A;
         std::vector<double> b;
-        generateSystem(n, A, b);
+        generateSLAR(n, A, b);
 
-        auto t0 = std::chrono::high_resolution_clock::now();
-        auto xSeq = jacobiSequential(A, b, 1e-9, 10000);
-        auto t1 = std::chrono::high_resolution_clock::now();
-        double seqMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        clock_t t0 = clock();
+        auto xSeq = jacobi(A, b, EPS, MAX_ITER);
+        clock_t t1 = clock();
+        double seqMs = 1000.0 * (t1 - t0) / CLOCKS_PER_SEC;
 
         std::cout << "n=" << n << " послідовно: " << seqMs << " мс\n";
 
         for (int k : threadCounts) {
-            auto p0 = std::chrono::high_resolution_clock::now();
-            auto xPar = jacobiParallel(A, b, 1e-9, 10000, k);
-            auto p1 = std::chrono::high_resolution_clock::now();
-            double parMs = std::chrono::duration<double, std::milli>(p1 - p0).count();
+            clock_t p0 = clock();
+            auto xPar = jacobiCooler(A, b, EPS, MAX_ITER, k);
+            clock_t p1 = clock();
+            double parMs = 1000.0 * (p1 - p0) / CLOCKS_PER_SEC;
 
-            std::cout << "  потоків=" << k
-                << " час=" << parMs << " мс"
-                << " прискорення=" << (seqMs / parMs) << "\n";
+            displayResult(k, parMs, seqMs / parMs);
         }
     }
     return 0;

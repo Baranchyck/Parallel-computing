@@ -1,10 +1,14 @@
-﻿#include <iostream>
+﻿#pragma execution_character_set("utf-8")
+#include <new>
+#include <iostream>
 #include <vector>
 #include <thread>
 #include <cstdlib>   
 #include <ctime>     
 #include <cmath>
 #include <windows.h>
+#include <iomanip>
+#include <algorithm>
 
 constexpr double EPS = 1e-9;
 constexpr int MAX_ITER = 10000;
@@ -14,7 +18,7 @@ double randomDouble(double min, double max) {
 }
 
 void generateSLAR(int n, std::vector<std::vector<double>>& A, std::vector<double>& b) {
-    srand(42); 
+    srand(42);
 
     A.assign(n, std::vector<double>(n));
     b.assign(n, 0.0);
@@ -102,6 +106,30 @@ std::vector<double> jacobiCooler(
     return xOld;
 }
 
+double residualInf(const std::vector<std::vector<double>>& A,
+    const std::vector<double>& b, const std::vector<double>& x)
+{
+    double m = 0.0;
+    for (size_t i = 0; i < A.size(); ++i) {
+        double s = 0.0;
+        for (size_t j = 0; j < A.size(); ++j) s += A[i][j] * x[j];
+        m = (std::max)(m, std::fabs(s - b[i]));
+    }
+    return m;
+}
+
+void displaySLAR(const std::vector<std::vector<double>>& A,
+    const std::vector<double>& b, const std::vector<double>& x)
+{
+    for (size_t i = 0; i < A.size(); ++i) {
+        for (size_t j = 0; j < A.size(); ++j)
+            std::cout << std::setw(9) << A[i][j] << " ";
+        std::cout << "| " << std::setw(9) << b[i]
+            << "  ->  x = " << std::setw(9) << x[i] << "\n";
+    }
+    std::cout << "\n";
+}
+
 void displayResult(int threads, double timeMs, double speedup) {
     std::cout << "  потоків=" << threads
         << " час=" << timeMs << " мс"
@@ -112,20 +140,21 @@ int main() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 
-    std::vector<int> sizes = { 100, 500, 1000, 2000, 4000, 8000, 16000, 32000 };
+    std::vector<int> sizes = { 100, 500, 1000, 2000, 4000, 8000, 10000 };
     std::vector<int> threadCounts = { 2, 4, 8, 16, 32, 64 };
 
     for (int n : sizes) {
         std::vector<std::vector<double>> A;
         std::vector<double> b;
         generateSLAR(n, A, b);
-
+        
         clock_t t0 = clock();
         auto xSeq = jacobi(A, b, EPS, MAX_ITER);
         clock_t t1 = clock();
         double seqMs = 1000.0 * (t1 - t0) / CLOCKS_PER_SEC;
 
-        std::cout << "n=" << n << " послідовно: " << seqMs << " мс\n";
+        std::cout << "n=" << n << " послідовно: " << seqMs << " мс"
+            << " нев'язка=" << residualInf(A, b, xSeq) << "\n";
 
         for (int k : threadCounts) {
             clock_t p0 = clock();
@@ -136,5 +165,13 @@ int main() {
             displayResult(k, parMs, seqMs / parMs);
         }
     }
+
+    std::cout << "Тестова СЛАР 5x5:\n";
+    std::vector<std::vector<double>> A;
+    std::vector<double> b;
+    generateSLAR(5, A, b);
+    auto x = jacobiCooler(A, b, EPS, MAX_ITER, 2);
+    displaySLAR(A, b, x);
+
     return 0;
 }

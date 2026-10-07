@@ -11,20 +11,18 @@ namespace ThreeThreads
 {
     public partial class MainWindow : Window
     {
-        const int MaxSegments = 20;   // скільки сегментів влазить у «циліндр»
-        const int TickMs = 100;       // тривалість одного «тіка»
+        const int MaxSegments = 20;   
+        const int TickMs = 100;       
 
-        // --- спільні дані потоків ---
         List<Brush>[] segs = { new List<Brush>(), new List<Brush>(), new List<Brush>() };
 
-        // «поштові скриньки»: черга завдань (тривалостей) для кожного потоку
         Queue<int>[] inbox = { new Queue<int>(), new Queue<int>(), new Queue<int>() };
 
-        int[] idle = { 0, 0, 0 };          // скільки тіків простою у кожного
-        int[] fixedDur = { 3, 5, 2 };      // фіксовані інтервали для режиму без рандому
-        volatile bool running = true;      // false = усі потоки завершуються
-        volatile bool paused = false;      // true = усі потоки стоять на паузі
-        volatile bool randomMode = true;   // режим інтервалів (фіксується при Start)
+        int[] idle = { 0, 0, 0 };          
+        int[] fixedDur = { 2, 4, 8 };      
+        volatile bool running = true;      
+        volatile bool paused = false;      
+        volatile bool randomMode = true;   
         object locker = new object();
         Random rnd = new Random();
 
@@ -39,23 +37,16 @@ namespace ThreeThreads
             canvases = new Canvas[] { canvas1, canvas2, canvas3 };
             labels = new TextBlock[] { lbl1, lbl2, lbl3 };
 
-            // таймер у UI-потоці: оновлює малюнок
             timer = new DispatcherTimer();
             timer.Interval = TimeSpan.FromMilliseconds(TickMs);
             timer.Tick += Timer_Tick;
 
-            // стартові завдання: початковий час однаковий для всіх потоків.
-            // Щоб побачити «двоє працюють, один відпочиває», закоментуй
-            // цикл і використай два рядки нижче:
             for (int i = 0; i < 3; i++) inbox[i].Enqueue(3);
-            // inbox[0].Enqueue(3);
-            // inbox[1].Enqueue(3);
         }
 
-        // ---------- кнопки ----------
         void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            randomMode = chkRandom.IsChecked == true;   // читаємо галочку тут, в UI-потоці
+            randomMode = chkRandom.IsChecked == true;   
             btnStart.IsEnabled = false;
             chkRandom.IsEnabled = false;
             btnPause.IsEnabled = true;
@@ -64,7 +55,7 @@ namespace ThreeThreads
             for (int i = 0; i < 3; i++)
             {
                 Thread t = new Thread(Work);
-                t.IsBackground = true;   // не тримає процес після закриття вікна
+                t.IsBackground = true;   
                 t.Start(i);
             }
         }
@@ -85,15 +76,13 @@ namespace ThreeThreads
             running = false;
         }
 
-        // ---------- робота одного потоку ----------
         void Work(object o)
         {
             int id = (int)o;
-            int next = (id + 1) % 3;   // 0 -> 1 -> 2 -> 0
+            int next = (id + 1) % 3;   
 
             while (running)
             {
-                // 1. чекаємо завдання. Простій = червоні сегменти
                 int ticks = 0;
                 bool got = false;
                 while (running && !got)
@@ -115,14 +104,12 @@ namespace ThreeThreads
                 }
                 if (!running) break;
 
-                // 2. працюємо. Робота = сині сегменти
                 for (int i = 0; i < ticks && running; i++)
                 {
                     AddSeg(id, Brushes.Blue);
                     Tick();
                 }
 
-                // 3. передаємо наступному потоку, скільки йому працювати
                 lock (locker)
                 {
                     inbox[next].Enqueue(randomMode ? rnd.Next(1, 6) : fixedDur[next]);
@@ -130,8 +117,6 @@ namespace ThreeThreads
             }
         }
 
-        // один «тік»: якщо пауза, стоїмо; потім звичайна затримка.
-        // Викликається поза lock, тому пауза нікого не блокує.
         void Tick()
         {
             while (paused && running)
@@ -139,18 +124,16 @@ namespace ThreeThreads
             Thread.Sleep(TickMs);
         }
 
-        // додати сегмент у колонку потоку (UI тут не чіпаємо!)
         void AddSeg(int id, Brush c)
         {
             lock (segs[id])
             {
                 segs[id].Add(c);
                 if (segs[id].Count > MaxSegments)
-                    segs[id].RemoveAt(0);   // колонка «їде» вгору
+                    segs[id].RemoveAt(0);   
             }
         }
 
-        // ---------- UI: тік таймера, перемальовуємо колонки ----------
         void Timer_Tick(object sender, EventArgs e)
         {
             for (int i = 0; i < 3; i++)

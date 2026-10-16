@@ -2,9 +2,8 @@
 
 class Program
 {
-    const int INF = 1_000_000_000; // "ребра немає"
+    const int INF = 1_000_000_000; 
 
-    // ---------- Генерація графа ----------
     static int[,] GenerateGraph(int n, int seed)
     {
         var rnd = new Random(seed);
@@ -18,7 +17,6 @@ class Program
         return w;
     }
 
-    // next[i,j] - яка вершина йде першою на шляху з i в j (для відновлення шляху)
     static int[,] InitNext(int[,] w)
     {
         int n = w.GetLength(0);
@@ -29,7 +27,6 @@ class Program
         return next;
     }
 
-    // ---------- Крок Флойда для рядків [from, to) при проміжній вершині m ----------
     static void RelaxRows(int[,] d, int[,] next, int m, int from, int to)
     {
         int n = d.GetLength(0);
@@ -45,7 +42,6 @@ class Program
             }
     }
 
-    // ---------- 1. Послідовний ----------
     static (int[,] d, int[,] next) FloydSequential(int[,] w)
     {
         int n = w.GetLength(0);
@@ -58,35 +54,40 @@ class Program
         return (d, next);
     }
 
-    // ---------- 2. Thread ----------
     static (int[,] d, int[,] next) FloydThreads(int[,] w, int k)
     {
         int n = w.GetLength(0);
         var d = (int[,])w.Clone();
         var next = InitNext(w);
-        int size = (n + k - 1) / k; // рядків на один потік
+        int size = (n + k - 1) / k; 
 
-        for (int m = 0; m < n; m++)
+        var barrier = new Barrier(k);
+        var threads = new Thread[k];
+
+        for (int t = 0; t < k; t++)
         {
-            int mm = m;
-            var threads = new Thread[k];
+            int from = Math.Min(n, t * size);
+            int to = Math.Min(n, from + size);
 
-            for (int t = 0; t < k; t++)
+            threads[t] = new Thread(() =>
             {
-                int from = t * size;
-                int to = Math.Min(n, from + size);
-                threads[t] = new Thread(() => RelaxRows(d, next, mm, from, to));
-                threads[t].Start();
-            }
-
-            foreach (var th in threads)
-                th.Join();
+                for (int m = 0; m < n; m++)
+                {
+                    RelaxRows(d, next, m, from, to);
+                    barrier.SignalAndWait();
+                }
+            });
+            threads[t].Start();
         }
+
+        foreach (var th in threads)
+            th.Join();
+
+        barrier.Dispose();
 
         return (d, next);
     }
 
-    // ---------- 3. Task ----------
     static (int[,] d, int[,] next) FloydTasks(int[,] w, int k)
     {
         int n = w.GetLength(0);
@@ -101,7 +102,7 @@ class Program
 
             for (int t = 0; t < k; t++)
             {
-                int from = t * size;
+                int from = Math.Min(n, t * size);
                 int to = Math.Min(n, from + size);
                 tasks[t] = Task.Run(() => RelaxRows(d, next, mm, from, to));
             }
@@ -112,26 +113,26 @@ class Program
         return (d, next);
     }
 
-    // ---------- Вивід шляху a -> b ----------
-    static void PrintPath(int[,] d, int[,] next, int a, int b)
+    static string PathToString(int[,] d, int[,] next, int a, int b)
     {
         if (d[a, b] >= INF)
-        {
-            Console.WriteLine($"Шляху a{a} -> a{b} немає");
-            return;
-        }
+            return $"a{a} -> a{b}: шляху немає";
 
-        Console.Write($"Довжина a{a} -> a{b} = {d[a, b]}, шлях: a{a}");
+        var steps = new List<int> { a };
         int cur = a;
         while (cur != b)
         {
             cur = next[cur, b];
-            Console.Write($" -> a{cur}");
+            steps.Add(cur);
         }
-        Console.WriteLine();
+
+        string path = steps.Count <= 12
+            ? string.Join(" -> ", steps.Select(v => $"a{v}"))
+            : $"{steps.Count} вершин (a{a} -> ... -> a{b})";
+
+        return $"a{a} -> a{b}, довжина {d[a, b]}, шлях: {path}";
     }
 
-    // ---------- Заміри часу ----------
     static long MeasureMs(Action action)
     {
         var sw = Stopwatch.StartNew();
@@ -142,23 +143,48 @@ class Program
 
     static void Main()
     {
-        int n = 800;        // кількість вершин
-        int k = 4;          // кількість потоків
-        int a = 0, b = 700; // початковий і кінцевий вузли
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        var w = GenerateGraph(n, 42);
+        List<int> n_list = [100, 200, 500, 800, 1000, 2000];
+        List<int> k_list = [2, 4, 8, 16, 32, 64];
 
-        (int[,] d, int[,] next) res = default;
+        var warm = GenerateGraph(50, 1);
+        FloydSequential(warm);
+        FloydThreads(warm, 2);
+        FloydTasks(warm, 2);
 
-        long tSeq = MeasureMs(() => res = FloydSequential(w));
-        Console.WriteLine($"Послідовно:  {tSeq} мс");
+        Console.WriteLine($"Логічних ядер: {Environment.ProcessorCount}\n");
+        Console.WriteLine("    n |   k | Послідовно, мс | Thread, мс | Task, мс | Приск. Thread | Приск. Task");
+        Console.WriteLine(new string('-', 92));
 
-        long tThread = MeasureMs(() => FloydThreads(w, k));
-        Console.WriteLine($"Thread ({k}):  {tThread} мс");
+        var paths = new List<string>();
 
-        long tTask = MeasureMs(() => FloydTasks(w, k));
-        Console.WriteLine($"Task ({k}):    {tTask} мс");
+        foreach (int n in n_list)
+        {
+            var w = GenerateGraph(n, 42);
+            int a = 0, b = n - 1;
 
-        PrintPath(res.d, res.next, a, b);
+            (int[,] d, int[,] next) res = default;
+            long tSeq = MeasureMs(() => res = FloydSequential(w));
+
+            foreach (int k in k_list)
+            {
+                long tThread = MeasureMs(() => FloydThreads(w, k));
+                long tTask = MeasureMs(() => FloydTasks(w, k));
+
+                double spThread = (double)tSeq / Math.Max(1, tThread);
+                double spTask = (double)tSeq / Math.Max(1, tTask);
+
+                Console.WriteLine($"{n,5} | {k,3} | {tSeq,14} | {tThread,10} | {tTask,8} | {spThread,13:F2} | {spTask,11:F2}");
+            }
+
+            Console.WriteLine(new string('-', 92));
+
+            paths.Add($"n = {n}: " + PathToString(res.d, res.next, a, b));
+        }
+
+        Console.WriteLine("\nШляхи між заданими вузлами:");
+        foreach (var p in paths)
+            Console.WriteLine(p);
     }
 }

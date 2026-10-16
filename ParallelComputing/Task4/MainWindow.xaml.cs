@@ -19,7 +19,7 @@ namespace ThreeThreads
         Queue<int>[] inbox = { new Queue<int>(), new Queue<int>(), new Queue<int>() };
 
         int[] idle = { 0, 0, 0 };          
-        int[] fixedDur = { 2, 4, 8 };      
+        int[] fixedDur = { 3, 3, 3 };      
         volatile bool running = true;      
         volatile bool paused = false;      
         volatile bool randomMode = true;   

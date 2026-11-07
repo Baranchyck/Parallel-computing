@@ -265,7 +265,7 @@ class Program
         PrimThreads(warm, 0, 2);
 
         PrintDemo();
-
+         
         var rnd = new Random(2026);
 
         Console.WriteLine($"Логічних ядер: {Environment.ProcessorCount}");

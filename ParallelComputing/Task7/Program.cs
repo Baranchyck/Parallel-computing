@@ -273,7 +273,7 @@ class Program
         Console.WriteLine("     n |       m |      a | Вага MST |  k | Послідовно, мс | Thread, мс | Прискорення | Ефективність");
         Console.WriteLine(new string('-', 104));
 
-        bool allCorrect = true;
+        bool allCorrect = true; 
 
         foreach (int n in n_list)
         {
